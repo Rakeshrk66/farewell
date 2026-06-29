@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>// SECURE TRANSMISSION</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="googlebot" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#05080a;
+  --green:#37f49a;
+  --green-dim:#1d7f54;
+  --amber:#ffb627;
+  --red:#ff4d4d;
+  --ink:#cfeede;
+  --mute:#5e7a70;
+  --line:rgba(55,244,154,.14);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+  font-size:15px;
+  line-height:1.7;
+  overflow-x:hidden;
+  position:relative;
+}
+/* matrix rain canvas, kept subtle and behind everything */
+#rain{position:fixed;inset:0;z-index:0;opacity:.16;pointer-events:none}
+/* CRT scanlines + vignette */
+body::after{
+  content:"";position:fixed;inset:0;z-index:2;pointer-events:none;
+  background:
+    repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 1px, transparent 1px 3px),
+    radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%);
+  mix-blend-mode:multiply;
+}
+.wrap{position:relative;z-index:3;max-width:760px;margin:0 auto;padding:32px 22px 120px}
+
+/* terminal chrome */
+.term{
+  border:1px solid var(--line);
+  border-radius:10px;
+  background:rgba(5,12,10,.72);
+  backdrop-filter:blur(2px);
+  box-shadow:0 0 0 1px rgba(0,0,0,.4), 0 30px 80px rgba(0,0,0,.6), inset 0 0 60px rgba(55,244,154,.03);
+  overflow:hidden;
+}
+.bar{
+  display:flex;align-items:center;gap:8px;
+  padding:11px 14px;border-bottom:1px solid var(--line);
+  background:rgba(55,244,154,.04);
+}
+.dot{width:11px;height:11px;border-radius:50%}
+.d1{background:#ff5f56}.d2{background:#ffbd2e}.d3{background:#27c93f}
+.bar .path{margin-left:8px;color:var(--mute);font-size:12.5px;letter-spacing:.04em}
+.body{padding:22px 20px 26px}
+
+/* boot sequence */
+#boot{font-size:13.5px;color:var(--green-dim)}
+#boot .ok{color:var(--green)}
+#boot .grant{
+  color:var(--green);font-family:"Space Grotesk",sans-serif;font-weight:700;
+  font-size:20px;letter-spacing:.18em;margin-top:6px;display:inline-block;
+  text-shadow:0 0 18px rgba(55,244,154,.5);
+}
+
+/* command blocks */
+.block{opacity:0;transform:translateY(8px);transition:opacity .5s ease, transform .5s ease;margin-top:26px}
+.block.in{opacity:1;transform:none}
+.cmd{color:var(--mute);font-size:13px;margin-bottom:8px}
+.cmd .p{color:var(--green)}
+.cmd .c{color:var(--ink)}
+.out{padding-left:2px}
+.h{
+  font-family:"Space Grotesk",sans-serif;font-weight:700;color:var(--green);
+  font-size:clamp(20px,5vw,28px);letter-spacing:-.01em;line-height:1.25;margin:2px 0 10px;
+  text-shadow:0 0 14px rgba(55,244,154,.35);
+}
+.p-txt{color:var(--ink);max-width:60ch}
+.dir{display:grid;grid-template-columns:1fr;gap:7px;margin-top:4px}
+.dir .row{
+  display:flex;gap:12px;align-items:baseline;
+  padding:9px 12px;border:1px solid var(--line);border-radius:7px;
+  background:rgba(55,244,154,.025);
+}
+.dir .perm{color:var(--green-dim);font-size:12px;letter-spacing:.05em;min-width:96px}
+.dir .name{color:var(--green);font-weight:500}
+.tag{color:var(--mute);font-size:12px;margin-left:auto}
+.thanks .line{margin:12px 0;padding-left:14px;border-left:2px solid var(--green-dim)}
+.thanks .who{color:var(--amber);font-weight:500}
+.sig{color:var(--green);margin-top:18px;font-weight:500}
+
+/* self-destruct */
+#destruct{
+  margin-top:40px;text-align:center;padding:26px 18px;
+  border:1px solid rgba(255,182,39,.3);border-radius:10px;
+  background:rgba(255,182,39,.04);
+}
+#destruct .warn{color:var(--amber);font-size:12.5px;letter-spacing:.22em;text-transform:uppercase}
+#clock{
+  font-family:"Space Grotesk",sans-serif;font-weight:700;
+  font-size:clamp(34px,11vw,60px);color:var(--amber);letter-spacing:.06em;margin:10px 0 6px;
+  text-shadow:0 0 26px rgba(255,182,39,.45);font-variant-numeric:tabular-nums;
+}
+#destruct .sub{color:var(--mute);font-size:12.5px}
+
+/* terminated / expired full-screen */
+#dead{
+  position:fixed;inset:0;z-index:50;display:none;
+  flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  background:var(--bg);text-align:center;padding:24px;
+}
+#dead.show{display:flex}
+#dead .glyph{font-size:46px;color:var(--red);text-shadow:0 0 24px rgba(255,77,77,.5)}
+#dead h2{font-family:"Space Grotesk",sans-serif;color:var(--red);letter-spacing:.2em;font-size:clamp(20px,6vw,30px)}
+#dead p{color:var(--mute);max-width:46ch;font-size:14px}
+#dead .by{color:var(--green-dim);margin-top:6px;font-size:13px}
+
+.cursor{display:inline-block;width:9px;height:17px;background:var(--green);margin-left:3px;vertical-align:-3px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.glitch{animation:gl .28s steps(2) 4}
+@keyframes gl{0%{transform:translate(0)}25%{transform:translate(-3px,2px)}50%{transform:translate(3px,-2px)}75%{transform:translate(-2px,-1px)}100%{transform:translate(0)}}
+
+@media (prefers-reduced-motion: reduce){
+  .block{transition:none}.cursor{animation:none}#rain{display:none}
+  body::after{background:radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,.5))}
+}
+</style>
+</head>
+<body>
+<canvas id="rain"></canvas>
+
+<div class="wrap">
+  <div class="term">
+    <div class="bar">
+      <span class="dot d1"></span><span class="dot d2"></span><span class="dot d3"></span>
+      <span class="path">shoubii://transmission/farewell — secure</span>
+    </div>
+    <div class="body">
+      <div id="boot"></div>
+      <div id="content" hidden></div>
+    </div>
+  </div>
+</div>
+
+<div id="dead">
+  <div class="glyph">⏿</div>
+  <h2>CONNECTION TERMINATED</h2>
+  <p>This transmission was classified and time-limited. The signal is gone — but the gratitude isn't.</p>
+  <div class="by" id="deadby"></div>
+</div>
+
+<script>
+
+const CONFIG = {
+  name: "Rakesh V",
+  role: "MES Consultant",
+  company: "Shoubii",
+  ceo: "Raj Sir",
+  phone: "+91 96592 31541",
+  email: "v.rakesh4uin@gmail.com",
+  deadlineISO: "2026-07-02T18:00:00+05:30"
+};
+/* ============================================================ */
+
+const DEADLINE = new Date(CONFIG.deadlineISO).getTime();
+const $ = (id)=>document.getElementById(id);
+
+/* ---------- matrix rain (subtle) ---------- */
+(function rain(){
+  const c=$('rain'), x=c.getContext('2d');
+  let cols, drops;
+  function size(){
+    c.width=innerWidth; c.height=innerHeight;
+    cols=Math.floor(c.width/14); drops=Array(cols).fill(1);
+  }
+  size(); addEventListener('resize',size);
+  const chars="アカサタナ0123456789</>{};$#".split("");
+  function tick(){
+    x.fillStyle="rgba(5,8,10,.08)"; x.fillRect(0,0,c.width,c.height);
+    x.fillStyle="#37f49a"; x.font="14px monospace";
+    for(let i=0;i<drops.length;i++){
+      x.fillText(chars[Math.floor(Math.random()*chars.length)], i*14, drops[i]*14);
+      if(drops[i]*14>c.height && Math.random()>.975) drops[i]=0;
+      drops[i]++;
+    }
+    requestAnimationFrame(tick);
+  }
+  if(!matchMedia('(prefers-reduced-motion: reduce)').matches) tick();
+})();
+
+/* ---------- expired? show terminated screen and stop ---------- */
+function killed(){
+  $('deadby').textContent = "— " + CONFIG.name;
+  $('dead').classList.add('show');
+}
+if(Date.now() > DEADLINE){ killed(); }
+else { runBoot(); }
+
+/* ---------- boot typewriter then reveal content ---------- */
+function type(el, text, speed, done){
+  let i=0;
+  (function step(){
+    if(i<=text.length){ el.innerHTML=text.slice(0,i)+'<span class="cursor"></span>'; i++; setTimeout(step,speed); }
+    else { el.innerHTML=text; done&&done(); }
+  })();
+}
+
+function runBoot(){
+  const lines=[
+    "> establishing uplink to shoubii://network ...",
+    "> handshake ████████████ ok",
+    "> decrypting transmission ...",
+    '> identity verified  <span class="ok">[OK]</span>',
+  ];
+  const boot=$('boot');
+  let n=0;
+  (function next(){
+    if(n<lines.length){
+      const div=document.createElement('div');
+      boot.appendChild(div);
+      type(div, lines[n], 14, ()=>{ n++; setTimeout(next, 180); });
+    } else {
+      const g=document.createElement('div');
+      g.innerHTML='<span class="grant">ACCESS GRANTED</span>';
+      boot.appendChild(g);
+      setTimeout(reveal, 650);
+    }
+  })();
+}
+
+/* ---------- content ---------- */
+function reveal(){
+  const c=$('content');
+  c.hidden=false;
+  c.innerHTML = buildHTML();
+  startClock();
+  // stagger reveal
+  const blocks=[...c.querySelectorAll('.block')];
+  blocks.forEach((b,i)=> setTimeout(()=>b.classList.add('in'), 120*i+80));
+}
+
+function cmd(p,c){ return `<div class="cmd"><span class="p">${p}</span> <span class="c">${c}</span></div>`; }
+
+function buildHTML(){
+  const N=CONFIG.name, R=CONFIG.role, CO=CONFIG.company, CEO=CONFIG.ceo;
+  return `
+  <div class="block">
+    ${cmd('visitor@'+CO.toLowerCase()+':~$','whoami')}
+    <div class="out">
+      <div class="h">${N}</div>
+      <div class="p-txt"><span style="color:var(--green-dim)">role:</span> ${R} @ ${CO}<br>
+      <span style="color:var(--green-dim)">status:</span> signing off — but grateful</div>
+    </div>
+  </div>
+
+  <div class="block">
+    ${cmd('visitor@'+CO.toLowerCase()+':~$','cat farewell.txt')}
+    <div class="out"><p class="p-txt">As I close this chapter at ${CO}, I want to thank everyone who supported and guided me. The opportunities, the lessons, and the encouragement here shaped me — as a developer and as a person. I walked in to begin a career; I'm walking out with a craft.</p></div>
+  </div>
+
+  <div class="block">
+    ${cmd('visitor@'+CO.toLowerCase()+':~$','ls -la ./skills_acquired/sap')}
+    <div class="out">
+      <div class="dir">
+        <div class="row"><span class="perm">drwxr-xr-x</span><span class="name">SAP&nbsp;S/4HANA</span><span class="tag">core ERP</span></div>
+        <div class="row"><span class="perm">drwxr-xr-x</span><span class="name">SAP&nbsp;MII</span><span class="tag">mfg intelligence</span></div>
+        <div class="row"><span class="perm">drwxr-xr-x</span><span class="name">SAP&nbsp;ME</span><span class="tag">mfg execution</span></div>
+        <div class="row"><span class="perm">drwxr-xr-x</span><span class="name">SAP&nbsp;DM</span><span class="tag">digital mfg</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="block">
+    ${cmd('visitor@'+CO.toLowerCase()+':~$','ls -la ./skills_acquired/dev')}
+    <div class="out">
+      <div class="dir">
+        <div class="row"><span class="perm">drwxr-xr-x</span><span class="name">.NET</span><span class="tag">backend / apps</span></div>
+        <div class="row"><span class="perm">drwxr-xr-x</span><span class="name">Ionic&nbsp;Mobile</span><span class="tag">cross-platform</span></div>
+        <div class="row"><span class="perm">drwxr-xr-x</span><span class="name">Productivity&nbsp;Tools</span><span class="tag">internal builds</span></div>
+      </div>
+      <p class="p-txt" style="margin-top:12px;color:var(--mute)">// one company, many stacks. that range is the gift.</p>
+    </div>
+  </div>
+
+  <div class="block">
+    ${cmd('visitor@'+CO.toLowerCase()+':~$','cat environment.log')}
+    <div class="out"><p class="p-txt">The people made it. A supportive team, an open culture, and colleagues who turned hard problems into good days. I learned as much from the people here as from any framework or transaction code.</p></div>
+  </div>
+
+  <div class="block thanks">
+    ${cmd('visitor@'+CO.toLowerCase()+':~$','sudo thank --priority=high')}
+    <div class="out">
+      <div class="line">To <span class="who">${CEO}</span> (CEO): thank you for the opportunity and the trust you placed in me to begin my career. It mattered.</div>
+      <div class="line">To <span class="who">management, mentors & colleagues</span>: thank you for the guidance and the collaboration. It has been a privilege to build alongside you.</div>
+      <div class="sig">// wishing ${CO} continued success and growth. — ${N}</div>
+    </div>
+  </div>
+
+  <div class="block">
+    ${cmd('visitor@'+CO.toLowerCase()+':~$','./keep_in_touch.sh')}
+    <div class="out">
+      <p class="p-txt" style="color:var(--mute);margin-bottom:10px">// the connection closes here — but the line stays open.</p>
+      <div class="dir">
+        <div class="row"><span class="perm">PHONE</span><span class="name"><a href="tel:${CONFIG.phone.replace(/\s/g,'')}" style="color:var(--green);text-decoration:none">${CONFIG.phone}</a></span><span class="tag">call / whatsapp</span></div>
+        <div class="row"><span class="perm">EMAIL</span><span class="name"><a href="mailto:${CONFIG.email}" style="color:var(--green);text-decoration:none">${CONFIG.email}</a></span><span class="tag">personal</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="destruct" class="block">
+    <div class="warn">⚠ this transmission self-destructs in</div>
+    <div id="clock">--:--:--</div>
+    <div class="sub">classified — visible for a limited time only</div>
+  </div>
+  `;
+}
+
+/* ---------- live countdown + trigger self-destruct ---------- */
+function startClock(){
+  const el=$('clock');
+  function pad(n){return String(n).padStart(2,'0');}
+  function tick(){
+    let ms=DEADLINE-Date.now();
+    if(ms<=0){
+      el.textContent="00:00:00";
+      document.querySelector('.term').classList.add('glitch');
+      setTimeout(killed, 700);
+      return;
+    }
+    const h=Math.floor(ms/3.6e6), m=Math.floor(ms%3.6e6/6e4), s=Math.floor(ms%6e4/1e3);
+    el.textContent = pad(h)+":"+pad(m)+":"+pad(s);
+    setTimeout(tick,1000);
+  }
+  tick();
+}
+</script>
+</body>
+</html>
